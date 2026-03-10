@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GDP vs Olympic Medals – D3 Enhanced Scatter Plot</title>
+  <!-- Use modern font and styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f8fafc;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px -10px rgba(0,20,30,0.2);
+      padding: 2rem 2rem 2rem 2rem;
+      width: fit-content;
+      max-width: 1200px;
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      font-weight: 500;
+      color: #0b3954;
+      letter-spacing: -0.01em;
+      border-left: 6px solid #2b7fc1;
+      padding-left: 1rem;
+    }
+    .subtitle {
+      color: #2c3e50;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+      background: #eef2f6;
+      padding: 0.75rem 1.25rem;
+      border-radius: 40px;
+      display: inline-block;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      background: #f1f5f9;
+      padding: 1rem 1.8rem;
+      border-radius: 60px;
+    }
+    .slider-label {
+      font-weight: 500;
+      color: #1e4660;
+    }
+    #yearSlider {
+      width: 300px;
+      height: 6px;
+      border-radius: 10px;
+      background: #d0ddee;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #yearSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #2b7fc1;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,80,120,0.3);
+      transition: 0.1s;
+      border: 2px solid white;
+    }
+    #yearSlider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #2b7fc1;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid white;
+    }
+    #year-display {
+      font-weight: 600;
+      background: #2b7fc1;
+      color: white;
+      padding: 0.3rem 1rem;
+      border-radius: 40px;
+      font-size: 1.1rem;
+      min-width: 80px;
+      text-align: center;
+    }
+    .vis-container {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+    svg {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+      font-family: 'Inter', sans-serif;
+    }
+    .axis path, .axis line {
+      stroke: #b0c4d9;
+      stroke-width: 1.2;
+    }
+    .axis text {
+      fill: #2c3e50;
+      font-size: 11px;
+      font-weight: 400;
+    }
+    .label {
+      fill: #1e3b4f;
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(20, 40, 55, 0.95);
+      backdrop-filter: blur(4px);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 400;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+      pointer-events: none;
+      transition: opacity 0.15s;
+      border: 1px solid rgba(255,255,255,0.2);
+      line-height: 1.5;
+    }
+    .tooltip strong {
+      font-weight: 600;
+      color: #ffd966;
+    }
+    .footer-note {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #5e7a93;
+      max-width: 800px;
+      text-align: center;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 1.2rem;
+    }
+    .footer-note a {
+      color: #1f6e9c;
+      text-decoration: none;
+    }
+    .footer-note a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h2>🏅 Economic Strength vs. Olympic Success</h2>
+  <div class="subtitle">GDP (current US$) vs. Total Medals — each dot represents a country in a given Olympic year</div>
+
+  <div class="controls">
+    <span class="slider-label">📅 Select year:</span>
+    <input type="range" id="yearSlider" min="1960" max="2020" step="4" value="2000">
+    <span id="year-display">2000</span>
+  </div>
+
+  <div id="vis" class="vis-container"></div>
+
+  <div class="footer-note">
+    ⚡ Data: Olympic athletes (1896–2022) + World Bank GDP (1960–2022).
+    Pre‑processing: de‑duplicated team events, matched by country name and year.<br>
+    📍 Hover over dots to see details. Drag the slider to explore different years.
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  (async function() {
+    // --- Data source description (meets assignment requirement) ---
+    // Olympic data: Kaggle "Olympic Summer & Winter Games, 1896-2022" (olympic_athletes.csv)
+    // GDP data: World Bank "GDP (current US$)", wide format (years as columns)
+    // All data preprocessing is done in the browser, each step is commented in detail
+
+    try {
+      // Load both CSV files in parallel
+      const [athletesRaw, gdpWide] = await Promise.all([
+        d3.csv("Olympics/olympic_medals.csv"),
+        d3.csv("GDP.csv")   // Please ensure the file path is correct and it is in wide format
+      ]);
+
+      console.log("✅ Data loaded successfully");
+
+      // ---------- 1. Clean Olympic data, extract year and deduplicate (avoid double counting team events) ----------
+      function extractYear(slug) {
+        if (!slug) return null;
+        const match = String(slug).match(/(\d{4})$/);
+        return match ? +match[1] : null;
+      }
+
+      // Filter valid records: must have year, country, medal type
+      const validAthletes = athletesRaw.filter(d => {
+        const year = extractYear(d['slug_game']);
+        return year && d['country_name'] && d['medal_type'];
+      });
+
+      // Deduplication key: Olympic_edition|country|event|medal_type
+      // Ensures each country-event-medal combination is counted only once
+      const uniqueKeySet = new Set();
+      const dedupedMedals = [];
+
+      validAthletes.forEach(d => {
+        const key = `${d['slug_game']}|${d['country_name']}|${d['event_title']}|${d['medal_type']}`;
+        if (!uniqueKeySet.has(key)) {
+          uniqueKeySet.add(key);
+          dedupedMedals.push({
+            year: extractYear(d['slug_game']),
+            country: d['country_name'],
+            medal: d['medal_type']
+          });
+        }
+      });
+
+      // Aggregate medal counts by country and year
+      const medalsByCountryYear = d3.rollup(
+              dedupedMedals,
+              v => v.length,                 // count
+              d => d.country,
+              d => d.year
+      );
+
+      const medalAgg = [];
+      medalsByCountryYear.forEach((yearMap, country) => {
+        yearMap.forEach((medals, year) => {
+          medalAgg.push({ country, year, medals });
+        });
+      });
+
+      console.log(`📊 Medal aggregation completed, total ${medalAgg.length} country-year records`);
+
+      // ---------- 2. Process wide-format GDP data ----------
+      // Assume first column is "Country Name", subsequent columns are four-digit years (e.g., 1960,1961,...)
+      const yearColumns = Object.keys(gdpWide[0]).filter(col => /^\d{4}$/.test(col));
+      console.log(`📅 Number of years in GDP data: ${yearColumns.length}`);
+
+      const gdpLong = [];
+      gdpWide.forEach(row => {
+        const country = row['Country Name'];
+        if (!country) return;
+        yearColumns.forEach(yearStr => {
+          const year = +yearStr;
+          const gdpVal = parseFloat(row[yearStr]);
+          // Keep only valid positive GDP (ignore null or zero)
+          if (!isNaN(gdpVal) && gdpVal > 0) {
+            gdpLong.push({
+              country: country,
+              year: year,
+              gdp: gdpVal
+            });
+          }
+        });
+      });
+
+      // Build a quick lookup Map: "country_year" -> GDP
+      const gdpMap = new Map();
+      gdpLong.forEach(d => {
+        const key = `${d.country}_${d.year}`;
+        gdpMap.set(key, d.gdp);
+      });
+
+      console.log(`💰 GDP long-format conversion completed, total ${gdpLong.length} records`);
+
+      // ---------- 3. Merge the two datasets ----------
+      const combined = [];
+      medalAgg.forEach(item => {
+        const key = `${item.country}_${item.year}`;
+        const gdp = gdpMap.get(key);
+        if (gdp) {   // Keep only points that have both medals and GDP
+          combined.push({
+            year: item.year,
+            country: item.country,
+            medals: item.medals,
+            gdp: gdp
+          });
+        }
+      });
+
+      console.log(`🔗 After merging, obtained ${combined.length} data points (with both medals and GDP)`);
+
+      if (combined.length === 0) {
+        d3.select("#vis").append("p").text("No matching data. Please check country name consistency or GDP year range.");
+        return;
+      }
+
+      // Get all available years (for slider range)
+      const availableYears = [...new Set(combined.map(d => d.year))].sort((a,b) => a-b);
+
+      // ---------- 4. Set canvas dimensions and margins ----------
+      const width = 1000, height = 600;
+      const margin = { top: 30, right: 30, bottom: 60, left: 80 };
+      const innerWidth = width - margin.left - margin.right;
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const svg = d3.select("#vis")
+              .append("svg")
+              .attr("width", width)
+              .attr("height", height)
+              .append("g")
+              .attr("transform", `translate(${margin.left},${margin.top})`);
+
+      // ---------- 5. Define scales (based on full data to keep axes fixed when slider changes) ----------
+      const gdpMin = d3.min(combined, d => d.gdp);
+      const gdpMax = d3.max(combined, d => d.gdp);
+      const medalsMax = d3.max(combined, d => d.medals);
+
+      const xScale = d3.scaleLog()
+              .domain([gdpMin, gdpMax])
+              .range([0, innerWidth])
+              .clamp(true);
+
+      const yScale = d3.scaleLinear()
+              .domain([0, medalsMax])
+              .range([innerHeight, 0])
+              .nice();
+
+      // ---------- 6. Draw axes ----------
+      const xAxis = d3.axisBottom(xScale)
+              .tickValues([1e9, 1e10, 1e11, 1e12, 1e13])  // Adjust according to data
+              .tickFormat(d3.format("~s"));
+
+      const yAxis = d3.axisLeft(yScale)
+              .ticks(8, "d");
+
+      // Append x-axis
+      svg.append("g")
+              .attr("class", "axis")
+              .attr("transform", `translate(0,${innerHeight})`)
+              .call(xAxis)
+              .style("font-size", "11px");
+
+      // Append y-axis
+      svg.append("g")
+              .attr("class", "axis")
+              .call(yAxis)
+              .style("font-size", "11px");
+
+      // Axis labels (styled)
+      svg.append("text")
+              .attr("class", "label")
+              .attr("x", innerWidth / 2)
+              .attr("y", innerHeight + 45)
+              .attr("text-anchor", "middle")
+              .text("→  GDP (current US$, log scale)");
+
+      svg.append("text")
+              .attr("class", "label")
+              .attr("x", -80)
+              .attr("y", 20)
+              .attr("text-anchor", "middle")
+              .attr("transform", "rotate(-90)")
+              .text("↑  Total Medals");
+
+      // Optional: add grid lines (improve readability)
+      svg.append("g")
+              .attr("class", "grid")
+              .attr("transform", `translate(0,${innerHeight})`)
+              .call(d3.axisBottom(xScale)
+                      .tickValues([1e9, 1e10, 1e11, 1e12, 1e13])
+                      .tickSize(-innerHeight)
+                      .tickFormat("")
+              )
+              .style("color", "#e2e8f0")
+              .style("stroke-dasharray", "3,3");
+
+      svg.append("g")
+              .attr("class", "grid")
+              .call(d3.axisLeft(yScale)
+                      .ticks(8)
+                      .tickSize(-innerWidth)
+                      .tickFormat("")
+              )
+              .style("color", "#e2e8f0")
+              .style("stroke-dasharray", "3,3");
+
+      // ---------- 7. Tooltip ----------
+      const tooltip = d3.select("#tooltip");
+
+      // ---------- 8. Create a group to hold the scatter points ----------
+      const pointsGroup = svg.append("g").attr("class", "points");
+
+      // ---------- 9. Update function (draws points for the selected year) ----------
+      function updateScatter(year) {
+        const yearData = combined.filter(d => d.year === year);
+
+        // Use D3 data join to handle points
+        const circles = pointsGroup.selectAll("circle")
+                .data(yearData, d => d.country);  // Use country as key
+
+        // Handle entering points
+        circles.enter()
+                .append("circle")
+                .attr("cx", d => xScale(d.gdp))
+                .attr("cy", d => yScale(d.medals))
+                .attr("r", 0)   // initial radius 0, then transition in
+                .attr("fill", "steelblue")
+                .attr("fill-opacity", 0.7)
+                .attr("stroke", "white")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                  d3.select(this)
+                          .attr("r", 10)
+                          .attr("fill", "#ff9f4b")
+                          .attr("stroke", "#333")
+                          .attr("stroke-width", 2);
+                  tooltip.style("opacity", 1)
+                          .html(`
+                                <strong>${d.country}</strong><br>
+                                🏅 Medals: ${d.medals}<br>
+                                💰 GDP: $${d3.format(".2s")(d.gdp)}
+                            `)
+                          .style("left", (event.pageX + 15) + "px")
+                          .style("top", (event.pageY - 40) + "px");
+                })
+                .on("mousemove", function(event) {
+                  tooltip.style("left", (event.pageX + 15) + "px")
+                          .style("top", (event.pageY - 40) + "px");
+                })
+                .on("mouseout", function() {
+                  d3.select(this)
+                          .attr("r", 7)
+                          .attr("fill", "steelblue")
+                          .attr("stroke", "white")
+                          .attr("stroke-width", 1);
+                  tooltip.style("opacity", 0);
+                })
+                .transition()
+                .duration(400)
+                .attr("r", 7);   // enlarge on appear
+
+        // Update existing points (generally not needed because year changes, but for safety update positions)
+        circles
+                .transition()
+                .duration(400)
+                .attr("cx", d => xScale(d.gdp))
+                .attr("cy", d => yScale(d.medals));
+
+        // Remove exiting points (fade out)
+        circles.exit()
+                .transition()
+                .duration(300)
+                .attr("r", 0)
+                .remove();
+      }
+
+      // ---------- 10. Set up slider and bind events ----------
+      const slider = document.getElementById("yearSlider");
+      const yearDisplay = document.getElementById("year-display");
+
+      // Set slider range based on available years
+      slider.min = Math.min(...availableYears);
+      slider.max = Math.max(...availableYears);
+      slider.step = 4;  // Olympic interval
+      // Set default year to the closest to 2000 among available years
+      let defaultYear = availableYears.includes(2000) ? 2000 : availableYears[0];
+      slider.value = defaultYear;
+      yearDisplay.textContent = defaultYear;
+
+      // Initial draw
+      updateScatter(defaultYear);
+
+      // Listen to slider changes
+      slider.addEventListener("input", function(e) {
+        const year = +e.target.value;
+        yearDisplay.textContent = year;
+        updateScatter(year);
+      });
+
+    } catch (error) {
+      console.error("Error loading or processing data:", error);
+      d3.select("#vis").append("p")
+              .style("color", "red")
+              .text("❌ Data loading failed. Please check file paths and console error messages.");
+    }
+  })();
+</script>
+</body>
+</html>
