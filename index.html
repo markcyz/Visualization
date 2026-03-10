@@ -196,7 +196,7 @@
     try {
       // Load both CSV files in parallel
       const [athletesRaw, gdpWide] = await Promise.all([
-        d3.csv("Olympics/olympic_medals.csv"),
+        d3.csv("olympic_medals.csv"),
         d3.csv("GDP.csv")   // Please ensure the file path is correct and it is in wide format
       ]);
 
@@ -495,4 +495,5 @@
   })();
 </script>
 </body>
+
 </html>
